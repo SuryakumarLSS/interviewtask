@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { fetchMyPermissions, fetchResource, createResource, updateResource, deleteResource, fetchEmployeeNames } from '../services/api';
+import { fetchMyPermissions, fetchMyFieldPermissions, fetchResource, createResource, updateResource, deleteResource, fetchEmployeeNames } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, Trash2, AlertTriangle, X, Pencil, Plus, Users, Briefcase, Package, ShieldCheck } from 'lucide-react';
@@ -21,6 +21,7 @@ export default function Dashboard() {
     const [newItem, setNewItem] = useState({});
 
     const [employeesList, setEmployeesList] = useState([]);
+    const [fieldPermissions, setFieldPermissions] = useState({});
 
     const canRead = (res) => user?.role_id === 1 || permissions.some(p => p.resource === res && p.action === 'read');
     const canCreate = (res) => user?.role_id === 1 || permissions.some(p => p.resource === res && p.action === 'create');
@@ -60,6 +61,16 @@ export default function Dashboard() {
     }, [modalOpen]);
 
     useEffect(() => {
+        // Load field permissions for everyone (Admin gets simulated full perms from backend)
+        fetchMyFieldPermissions().then(fPerms => {
+            const fMap = {};
+            fPerms.forEach(p => {
+                if (!fMap[p.resource]) fMap[p.resource] = {};
+                fMap[p.resource][p.field] = { view: p.can_view, edit: p.can_edit };
+            });
+            setFieldPermissions(fMap);
+        }).catch(err => console.error("Field permissions fetch failed", err));
+
         if (user?.role_id !== 1) {
             fetchMyPermissions().then(setPermissions).catch(console.error);
         } else {
@@ -76,17 +87,27 @@ export default function Dashboard() {
             setLoading(true);
             fetchResource(activeResource)
                 .then(resData => {
-                    setData(resData);
-                    if (resData.length > 0) {
-                        setHeaders(Object.keys(resData[0]));
+                    const safeData = Array.isArray(resData) ? resData : [];
+                    setData(safeData);
+                    // Headers are now determined by what the API returned (READ enforcement)
+                    // But we can also use our known schema intersected with permissions for better ordering
+                    if (safeData.length > 0) {
+                        setHeaders(Object.keys(safeData[0]));
                     } else {
-                        setHeaders([]);
+                        // If no data, fall back to schema filtered by view permissions
+                        const schema = RESOURCE_SCHEMAS[activeResource] || [];
+                        const validHeaders = schema.filter(h => fieldPermissions[activeResource]?.[h]?.view);
+                        setHeaders(validHeaders);
                     }
                 })
-                .catch(err => console.error(err))
+                .catch(err => {
+                    console.error("Fetch error:", err);
+                    setData([]);
+                    setHeaders([]);
+                })
                 .finally(() => setLoading(false));
         }
-    }, [activeResource]);
+    }, [activeResource, fieldPermissions]);
 
     const RESOURCE_SCHEMAS = {
         employees: ['name', 'position', 'salary', 'department'],
@@ -362,18 +383,24 @@ export default function Dashboard() {
 
                                 <div className="space-y-5 max-h-[60vh] overflow-y-auto px-1 py-1 pr-2 custom-scrollbar">
                                     {(() => {
-                                        const RESOURCE_SCHEMAS = {
+                                        const schemas = {
                                             employees: ['name', 'position', 'salary', 'department'],
                                             projects: ['name', 'assigned_to', 'status', 'budget'],
                                             orders: ['customer_name', 'amount', 'status', 'order_date']
                                         };
 
-                                        const fields = activeResource && RESOURCE_SCHEMAS[activeResource]
-                                            ? RESOURCE_SCHEMAS[activeResource]
+                                        const fields = activeResource && schemas[activeResource]
+                                            ? schemas[activeResource]
                                             : headers;
 
                                         return fields.map(field => {
                                             if (field === 'id') return null;
+
+                                            const canView = fieldPermissions[activeResource]?.[field]?.view;
+                                            if (!canView) return null;
+
+                                            const canEdit = fieldPermissions[activeResource]?.[field]?.edit;
+                                            const isReadOnly = !canEdit;
 
                                             if (field === 'assigned_to') {
                                                 return (
@@ -384,13 +411,14 @@ export default function Dashboard() {
                                                         <div className="relative">
                                                             <select
                                                                 required
+                                                                disabled={isReadOnly}
                                                                 value={currentItem ? currentItem[field] || '' : newItem[field] || ''}
                                                                 onChange={(e) => {
                                                                     const val = e.target.value;
                                                                     if (currentItem) setCurrentItem({ ...currentItem, [field]: val });
                                                                     else setNewItem({ ...newItem, [field]: val });
                                                                 }}
-                                                                className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all text-sm font-medium text-zinc-900 appearance-none cursor-pointer"
+                                                                className={`w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all text-sm font-medium text-zinc-900 appearance-none ${isReadOnly ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                                                             >
                                                                 <option value="" disabled>Select employee...</option>
                                                                 {employeesList.length > 0 ? (
@@ -433,13 +461,14 @@ export default function Dashboard() {
                                                         <div className="relative">
                                                             <select
                                                                 required
+                                                                disabled={isReadOnly}
                                                                 value={currentVal}
                                                                 onChange={(e) => {
                                                                     const val = e.target.value;
                                                                     if (currentItem) setCurrentItem({ ...currentItem, [field]: val });
                                                                     else setNewItem({ ...newItem, [field]: val });
                                                                 }}
-                                                                className={`w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all text-sm font-semibold appearance-none cursor-pointer ${getStatusColor(currentVal)}`}
+                                                                className={`w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all text-sm font-semibold appearance-none ${isReadOnly ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${getStatusColor(currentVal)}`}
                                                             >
                                                                 <option value="" disabled>Select status...</option>
                                                                 <option value="Open">🔵 &nbsp; Open</option>
@@ -463,13 +492,14 @@ export default function Dashboard() {
                                                     </label>
                                                     <input
                                                         required
+                                                        disabled={isReadOnly}
                                                         type={['salary', 'amount', 'budget'].includes(field) ? 'number' : 'text'}
                                                         defaultValue={currentItem ? currentItem[field] : ''}
                                                         onChange={(e) => {
                                                             if (currentItem) setCurrentItem({ ...currentItem, [field]: e.target.value });
                                                             else setNewItem({ ...newItem, [field]: e.target.value });
                                                         }}
-                                                        className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all text-sm font-medium text-zinc-900 placeholder-zinc-400"
+                                                        className={`w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all text-sm font-medium text-zinc-900 placeholder-zinc-400 ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                         placeholder={`Enter ${field.replace('_', ' ')}`}
                                                     />
                                                 </div>

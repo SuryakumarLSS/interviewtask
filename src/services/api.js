@@ -32,6 +32,11 @@ export const fetchMyPermissions = async () => {
     return response.data;
 };
 
+export const fetchMyFieldPermissions = async () => {
+    const response = await api.get('/auth/field-permissions');
+    return response.data;
+};
+
 // Data Resource APIs
 export const fetchResource = async (resource) => {
     const response = await api.get(`/data/${resource}`);
@@ -61,6 +66,11 @@ export const fetchRoles = async () => {
 
 export const createRole = async (name) => {
     const response = await api.post('/admin/roles', { name });
+    return response.data;
+};
+
+export const deleteRole = async (roleId) => {
+    const response = await api.delete(`/admin/roles/${roleId}`);
     return response.data;
 };
 
@@ -102,6 +112,16 @@ export const updateUserRole = async (userId, roleId) => {
 
 export const deleteUser = async (userId) => {
     const response = await api.delete(`/admin/users/${userId}`);
+    return response.data;
+};
+
+export const fetchRoleFieldPermissions = async (roleId) => {
+    const response = await api.get(`/admin/field-permissions/${roleId}`);
+    return response.data;
+};
+
+export const updateRoleFieldPermission = async (payload) => {
+    const response = await api.post('/admin/field-permissions', payload);
     return response.data;
 };
 

@@ -1,69 +1,108 @@
-# Config-Driven Access Control System (RBAC)
+# Config-Driven Role-Based Access Control (RBAC) System
 
-This is a full-stack application demonstrating a Role-Based Access Control (RBAC) system with granular permission management (Table-level & Field-level).
+A production-grade full-stack application demonstrating an advanced Role-Based Access Control (RBAC) system with granular permission management (Table-level & Field-level).
 
-## Technology Stack
-- **Frontend:** React (Vite), Tailwind CSS, React Dictionary
-- **Backend:** Node.js, Express.js (Chosen due to environment constraints - Golang was unavailable)
-- **Database:** SQLite (Zero-config, embedded)
-- **Authentication:** JWT (JSON Web Tokens)
+## 🚀 Project Overview
 
-## Features
-1. **Authentication:**
-   - Login system using JWT.
-   - Protected routes.
-   - User session management.
+This system provides a robust framework for managing user access to resources. It features a React-powered frontend and a high-performance Go backend, utilizing a domain-driven architecture. The core strength of the system lies in its config-driven nature, where permissions are not hardcoded but managed dynamically through an administrative dashboard.
 
-2. **Role & Permission Management (Admin Only):**
-   - Create and manage Roles.
-   - Create Users and assign Roles.
-   - **Dynamic Permission Config:** Matrix UI to enable/disable access to specific resources (Employees, Projects, Orders) for each action (Read, Create, Update, Delete).
-   - **Field-Level Security:** Define specific columns (attributes) allowed for Read/Write operations (e.g., `name, salary` vs `*`).
+### Key Features
+- **Advanced RBAC:** Go beyond simple roles with resource-specific and field-specific permissions.
+- **Config-Driven:** Add new resources and fields in the database without changing backend logic.
+- **Superadmin Privileges:** Dedicated `is_admin` flag for bypassing standard checks when necessary.
+- **Email Invitation System:** Secure user onboarding via email invitations.
+- **Secure Authentication:** JWT-based authentication with protected routes.
 
-3. **Data Management:**
-   - Generic API endpoints (`/api/data/:resource`) that enforce configured permissions dynamically.
-   - Dashboard sidebar adapts to user's read permissions.
-   - Actions (Edit/Delete/Create) are only shown if permitted.
-   - Backend validation ensures no unauthorized fields are modified.
+---
 
-## Setup & Run
+## 🏗️ Technology Stack
+
+- **Frontend:** React (Vite), Tailwind CSS, Framer Motion, Lucide React.
+- **Backend:** Go (Gin Framework), domain-driven architecture.
+- **Database:** PostgreSQL (with production-grade schema).
+- **Authentication:** JWT (JSON Web Tokens).
+
+---
+
+## 🔐 Role & Permission Model
+
+The system uses a hierarchical and granular permission model:
+
+### 1. Table Level Permission (Global Resource Access)
+Controls high-level CRUD (Create, Read, Update, Delete) access to entire resources (e.g., Employees, Projects, Orders).
+- **Read:** Can view the list and details of a resource.
+- **Create:** Can add new records.
+- **Update:** Can modify existing records.
+- **Delete:** Can remove records.
+
+### 2. Field Level Permission
+Provides fine-grained control over specific columns/attributes within a resource.
+- **View:** Controls visibility of specific fields (e.g., hide 'Salary' from certain roles).
+- **Edit:** Controls whether a field can be modified even if 'Update' is granted at the table level.
+
+### 3. Superadmin Status
+Users with the `is_admin` flag set to `TRUE` in the database have full access to all resources and the Admin Console.
+
+---
+
+## 🚦 Getting Started
 
 ### Prerequisites
-- Node.js installed.
+- [Node.js](https://nodejs.org/) (v16+)
+- [Go](https://golang.google.com/dl/) (v1.20+)
+- [PostgreSQL](https://www.postgresql.org/)
 
 ### Installation
-1. Install dependencies:
+
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd project-new
+   ```
+
+2. **Frontend Setup:**
    ```bash
    npm install
    ```
 
-### Running the App
-Run both backend and frontend concurrently with a single command:
+3. **Backend Setup:**
+   Navigate to the backend directory and set up your environment variables:
+   ```bash
+   cd go-server
+   cp .env.example .env
+   ```
+   *Edit `.env` with your PostgreSQL credentials and JWT secret.*
+
+### Running the Application
+
+You can run both the frontend and backend concurrently from the root directory:
+
 ```bash
 npm run dev
 ```
 
-The app will open at `http://localhost:5173` (or 5174 if port is busy).
-The backend server runs on `http://localhost:5000`.
+- **Frontend:** `http://localhost:5173`
+- **Backend Server:** `http://localhost:5001`
 
-## Login Credentials
-**Admin User:**
-- Username: `admin`
-- Password: `admin123`
+---
 
-**Sample User:**
-- You can create new users via the Admin Panel.
+## 🔑 Sample Login Credentials
 
-## Project Structure
-- `server/` - Backend API & Database logic
-  - `database.js` - SQLite schema & seeding
-  - `middleware/rbac.js` - The core permission enforcement logic
-  - `routes/` - API endpoints
-- `src/` - React Frontend
-  - `pages/Dashboard.tsx` - Dynamic resource viewer
-  - `pages/Admin.tsx` - Role & Permission manager
-  - `services/api.ts` - Axios API layer
+| Role | Username | Password |
+|------|----------|----------|
+| **Superadmin** | `admin` | `admin123` |
 
-## key Design Decisions
-- **Config-Driven:** Permissions are stored in the database (`permissions` table) and loaded dynamically. The UI and Backend both query this configuration to determine access.
-- **Generic Resource Handler:** Instead of writing separate controllers for each entity, a generic router (`server/routes/data.js`) handles CRUD for whitelisted resources, applying the RBAC middleware automatically. This makes adding new resources extremely easy (just add table & whitelist).
+*Note: You can create more users and assign different roles via the Admin Console.*
+
+---
+
+## 📂 Project Structure
+
+- **`src/`**: React Frontend source code.
+  - `pages/Admin.jsx`: Granular permission management UI.
+  - `pages/Dashboard.jsx`: Dynamic resource viewer based on permissions.
+- **`go-server/`**: Go Backend (Domain-Based).
+  - `cmd/server/main.go`: Application entry point.
+  - `internal/`: Domain modules (auth, user, role, resource).
+  - `pkg/utils/`: Shared utilities (JWT, random generators).
+- **`cmd/`**: Utility scripts (e.g., `verify_admin`, `debug_perms`).
